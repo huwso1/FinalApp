@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CFG Analyzer Pro</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside>
+    <h1>CFG Analyzer</h1>
+    
+    <div class="control-group">
+        <h3>File Operations</h3>
+        <button class="primary" id="load-btn">Load Grammar</button>
+    </div>
+
+    <div class="control-group">
+        <h3>Analysis</h3>
+        <button class="op-btn" data-op="terminating">Terminating Vars</button>
+        <button class="op-btn" data-op="nullable">Nullable Vars</button>
+        <button class="op-btn" data-op="reachable">Reachable Vars</button>
+        <button class="op-btn" data-op="unit">Unit Closures</button>
+    </div>
+
+    <div class="control-group">
+        <h3>Transformation</h3>
+        <button class="op-btn" data-op="useless">Remove Useless</button>
+    </div>
+</aside>
+
+<main>
+    <section class="panel">
+        <h2>Grammar Definition</h2>
+        <textarea id="grammar-input" placeholder="Enter production rules here...
+Example:
+S -> AB | a
+A -> aA | λ
+B -> b"></textarea>
+    </section>
+
+    <section class="panel">
+        <h2>Analysis Results</h2>
+        <div id="output-container">
+            <p style="color: #94a3b8; font-style: italic;">Results will appear here...</p>
+        </div>
+    </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+    const grammarInput = document.getElementById("grammar-input");
+    const outputContainer = document.getElementById("output-container");
+    const toast = document.getElementById("toast");
+
+    // Helper: Show Notification
+    function showToast(msg, isError = false) {
+        toast.textContent = msg;
+        toast.className = isError ? "error show" : "show";
+        setTimeout(() => toast.className = toast.className.replace("show", ""), 3000);
+    }
+
+    // 1. Load Grammar
+    document.getElementById("load-btn").onclick = async () => {
+        const text = grammarInput.value;
+        const res = await window.pywebview.api.load_grammar(text);
+        
+        if (res.status === "error") {
+            showToast(res.message, true);
+        } else {
+            showToast("Grammar loaded successfully!");
+            renderGrammar(res.data, "Current Grammar Structure");
+        }
+    };
+
+    // 2. Run Algorithms
+    document.querySelectorAll(".op-btn").forEach(btn => {
+        btn.onclick = async () => {
+            const op = btn.getAttribute("data-op");
+            const res = await window.pywebview.api.run_algorithm(op);
+
+            if (res.status === "error") {
+                showToast(res.message, true);
+            } else {
+                renderResult(res.result);
+            }
+        };
+    });
+
+    // Rendering Logic
+    function renderResult(data) {
+        outputContainer.innerHTML = ""; // Clear previous
+
+        const title = document.createElement("h3");
+        title.style.margin = "0 0 15px 0";
+        title.style.color = "#334155";
+        title.textContent = data.title;
+        outputContainer.appendChild(title);
+
+        if (data.type === "set") {
+            if (data.value.length === 0) {
+                outputContainer.innerHTML += "<em>Empty set</em>";
+                return;
+            }
+            data.value.forEach(item => {
+                const badge = document.createElement("span");
+                badge.className = "badge";
+                badge.textContent = item;
+                outputContainer.appendChild(badge);
+            });
+        } 
+        else if (data.type === "dict") {
+            for (const [key, val] of Object.entries(data.value)) {
+                const row = document.createElement("div");
+                row.className = "table-row";
+                row.innerHTML = `<span class="table-key">${key}</span> <span class="arrow">→</span> <span>{ ${val.join(", ")} }</span>`;
+                outputContainer.appendChild(row);
+            }
+        } 
+        else if (data.type === "grammar") {
+            renderGrammar(data.value, null, true);
+        }
+    }
+
+    function renderGrammar(grammarData, customTitle, append = false) {
+        if (!append) outputContainer.innerHTML = "";
+        
+        if (customTitle) {
+            const h3 = document.createElement("h3");
+            h3.textContent = customTitle;
+            outputContainer.appendChild(h3);
+        }
+
+        const stats = document.createElement("div");
+        stats.style.marginBottom = "15px";
+        stats.style.fontSize = "0.9rem";
+        stats.innerHTML = `
+            <strong>Start Symbol:</strong> <span class="badge">${grammarData.start}</span>
+            <strong>Variables:</strong> ${grammarData.variables.length}
+            <strong>Terminals:</strong> ${grammarData.terminals.length}
+        `;
+        outputContainer.appendChild(stats);
+
+        const prodContainer = document.createElement("div");
+        prodContainer.style.background = "#f8fafc";
+        prodContainer.style.padding = "10px";
+        prodContainer.style.borderRadius = "6px";
+
+        for (const [lhs, rhsList] of Object.entries(grammarData.productions)) {
+            const row = document.createElement("div");
+            row.className = "table-row";
+            // Check for epsilon
+            const displayRhs = rhsList.map(r => r === "λ" ? "λ" : r).join(" | ");
+            row.innerHTML = `<span class="table-key">${lhs}</span> <span class="arrow">→</span> <span class="prod-list">${displayRhs}</span>`;
+            prodContainer.appendChild(row);
+        }
+        outputContainer.appendChild(prodContainer);
+    }
+</script>
+
+</body>
+</html>
