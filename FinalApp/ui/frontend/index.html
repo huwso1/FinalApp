@@ -1,49 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CFG Analyzer Pro</title>
+    <title>CIG Analizador</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <aside>
-    <h1>CFG Analyzer</h1>
+    <h1>Analizador CIG</h1>
     
     <div class="control-group">
-        <h3>File Operations</h3>
-        <button class="primary" id="load-btn">Load Grammar</button>
+        <button class="primary" id="load-btn">Cargar Gramática</button>
     </div>
 
     <div class="control-group">
-        <h3>Analysis</h3>
-        <button class="op-btn" data-op="terminating">Terminating Vars</button>
-        <button class="op-btn" data-op="nullable">Nullable Vars</button>
-        <button class="op-btn" data-op="reachable">Reachable Vars</button>
-        <button class="op-btn" data-op="unit">Unit Closures</button>
+        <h3>Análisis</h3>
+        <button class="op-btn" data-op="terminating">Variables Terminables</button>
+        <button class="op-btn" data-op="nullable">Variables Anulables</button>
+        <button class="op-btn" data-op="reachable">Variables Alcanzables</button>
+        <button class="op-btn" data-op="unit">Clausuras Unitarias</button>
     </div>
 
     <div class="control-group">
-        <h3>Transformation</h3>
-        <button class="op-btn" data-op="useless">Remove Useless</button>
+        <h3>Transformación</h3>
+        <button class="op-btn" data-op="useless">Eliminar variables Inútiles</button>
     </div>
 </aside>
 
 <main>
-    <section class="panel">
-        <h2>Grammar Definition</h2>
-        <textarea id="grammar-input" placeholder="Enter production rules here...
-Example:
+    <section class="panel grammar-panel">
+        <h2 class="grammar-header">
+            Definición de la Gramática
+        </h2>
+
+        <textarea id="grammar-input" placeholder="Ingrese reglas de producción aquí...
+Ejemplo:
 S -> AB | a
 A -> aA | λ
 B -> b"></textarea>
+        
+        <div class="lambda-help">
+            <span>Para copiar el símbolo lambda pulse el botón con el símbolo</span>
+            <button id="copy-lambda-btn" class="lambda-btn">λ</button>
+        </div>
+        
+        <div id="copy-msg" style="position: fixed; bottom: 20px; right: 20px; background:#333; color:#fff; padding:8px 12px; border-radius:5px; display:none;">
+            Lambda copiado al portapapeles
+        </div>
     </section>
 
     <section class="panel">
-        <h2>Analysis Results</h2>
-        <div id="output-container">
-            <p style="color: #94a3b8; font-style: italic;">Results will appear here...</p>
+        <h2>Resultados del Análisis</h2>
+        <div class="results-container">
+            <div id="output-container">
+                <p style="color: #94a3b8; font-style: italic;">Los resultados aparecerán aquí...</p>
+            </div>
+            
+            <div id="steps-container" class="steps-panel">
+                <h3>Paso a Paso</h3>
+                <div id="steps-content">
+                    <p style="color: #94a3b8; font-style: italic; margin: 0;">
+                        Seleccione un algoritmo para ver los pasos detallados...
+                    </p>
+                </div>
+            </div>
         </div>
     </section>
 </main>
@@ -55,14 +77,12 @@ B -> b"></textarea>
     const outputContainer = document.getElementById("output-container");
     const toast = document.getElementById("toast");
 
-    // Helper: Show Notification
     function showToast(msg, isError = false) {
         toast.textContent = msg;
         toast.className = isError ? "error show" : "show";
         setTimeout(() => toast.className = toast.className.replace("show", ""), 3000);
     }
 
-    // 1. Load Grammar
     document.getElementById("load-btn").onclick = async () => {
         const text = grammarInput.value;
         const res = await window.pywebview.api.load_grammar(text);
@@ -70,15 +90,20 @@ B -> b"></textarea>
         if (res.status === "error") {
             showToast(res.message, true);
         } else {
-            showToast("Grammar loaded successfully!");
-            renderGrammar(res.data, "Current Grammar Structure");
+            showToast("Gramática cargada correctamente.");
+            renderGrammar(res.data, "Estructura Actual de la Gramática");
+            clearSteps();
         }
     };
 
-    // 2. Run Algorithms
     document.querySelectorAll(".op-btn").forEach(btn => {
-        btn.onclick = async () => {
-            const op = btn.getAttribute("data-op");
+        btn.onclick = async function() {
+            // Remover clase active de todos los botones
+            document.querySelectorAll(".op-btn").forEach(b => b.classList.remove("active"));
+            // Añadir clase active al botón clickeado
+            this.classList.add("active");
+            
+            const op = this.getAttribute("data-op");
             const res = await window.pywebview.api.run_algorithm(op);
 
             if (res.status === "error") {
@@ -89,9 +114,8 @@ B -> b"></textarea>
         };
     });
 
-    // Rendering Logic
     function renderResult(data) {
-        outputContainer.innerHTML = ""; // Clear previous
+        outputContainer.innerHTML = "";
 
         const title = document.createElement("h3");
         title.style.margin = "0 0 15px 0";
@@ -101,15 +125,15 @@ B -> b"></textarea>
 
         if (data.type === "set") {
             if (data.value.length === 0) {
-                outputContainer.innerHTML += "<em>Empty set</em>";
-                return;
+                outputContainer.innerHTML += "<em>Conjunto vacío</em>";
+            } else {
+                data.value.forEach(item => {
+                    const badge = document.createElement("span");
+                    badge.className = "badge";
+                    badge.textContent = item;
+                    outputContainer.appendChild(badge);
+                });
             }
-            data.value.forEach(item => {
-                const badge = document.createElement("span");
-                badge.className = "badge";
-                badge.textContent = item;
-                outputContainer.appendChild(badge);
-            });
         } 
         else if (data.type === "dict") {
             for (const [key, val] of Object.entries(data.value)) {
@@ -121,6 +145,13 @@ B -> b"></textarea>
         } 
         else if (data.type === "grammar") {
             renderGrammar(data.value, null, true);
+        }
+        
+        // Mostrar pasos
+        if (data.steps) {
+            renderSteps(data.steps, data.title);
+        } else {
+            clearSteps();
         }
     }
 
@@ -137,9 +168,9 @@ B -> b"></textarea>
         stats.style.marginBottom = "15px";
         stats.style.fontSize = "0.9rem";
         stats.innerHTML = `
-            <strong>Start Symbol:</strong> <span class="badge">${grammarData.start}</span>
+            <strong>Símbolo Inicial:</strong> <span class="badge">${grammarData.start}</span>
             <strong>Variables:</strong> ${grammarData.variables.length}
-            <strong>Terminals:</strong> ${grammarData.terminals.length}
+            <strong>Terminales:</strong> ${grammarData.terminals.length}
         `;
         outputContainer.appendChild(stats);
 
@@ -151,13 +182,82 @@ B -> b"></textarea>
         for (const [lhs, rhsList] of Object.entries(grammarData.productions)) {
             const row = document.createElement("div");
             row.className = "table-row";
-            // Check for epsilon
             const displayRhs = rhsList.map(r => r === "λ" ? "λ" : r).join(" | ");
             row.innerHTML = `<span class="table-key">${lhs}</span> <span class="arrow">→</span> <span class="prod-list">${displayRhs}</span>`;
             prodContainer.appendChild(row);
         }
         outputContainer.appendChild(prodContainer);
     }
+
+    function renderSteps(steps, title) {
+        const stepsContent = document.getElementById("steps-content");
+        stepsContent.innerHTML = "";
+        
+        if (!steps || steps.length === 0) {
+            stepsContent.innerHTML = '<p style="color: #94a3b8; font-style: italic;">No hay pasos para mostrar.</p>';
+            return;
+        }
+        
+        // Título del algoritmo
+        const h4 = document.createElement("h4");
+        h4.style.margin = "0 0 15px 0";
+        h4.style.color = "#334155";
+        h4.textContent = title || "Proceso del Algoritmo";
+        stepsContent.appendChild(h4);
+        
+        // Mostrar cada paso
+        steps.forEach((step, index) => {
+            const stepDiv = document.createElement("div");
+            stepDiv.className = `step-item ${step.type || ""}`;
+            
+            const header = document.createElement("div");
+            header.className = "step-header";
+            
+            const iteration = document.createElement("span");
+            iteration.className = "step-iteration";
+            iteration.textContent = step.iteration || `Paso ${index + 1}`;
+            
+            const vars = document.createElement("span");
+            vars.className = "step-vars";
+            vars.textContent = step.variables || step.result || "";
+            
+            header.appendChild(iteration);
+            header.appendChild(vars);
+            stepDiv.appendChild(header);
+            
+            if (step.explanation) {
+                const explanation = document.createElement("div");
+                explanation.className = "step-rule";
+                explanation.textContent = step.explanation;
+                stepDiv.appendChild(explanation);
+            }
+            
+            if (step.newVariables && step.newVariables.length > 0) {
+                const newVars = document.createElement("div");
+                newVars.className = "step-rule";
+                newVars.innerHTML = `<strong style="color: #059669;">Añadidas:</strong> ${step.newVariables.join(", ")}`;
+                newVars.style.marginTop = "4px";
+                stepDiv.appendChild(newVars);
+            }
+            
+            stepsContent.appendChild(stepDiv);
+        });
+    }
+
+    function clearSteps() {
+        const stepsContent = document.getElementById("steps-content");
+        stepsContent.innerHTML = '<p style="color: #94a3b8; font-style: italic; margin: 0;">Seleccione un algoritmo para ver los pasos detallados...</p>';
+    }
+
+    document.getElementById('copy-lambda-btn').addEventListener('click', () => {
+        navigator.clipboard.writeText('λ').then(() => {
+            const msg = document.getElementById('copy-msg');
+            msg.style.display = 'block';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }).catch(err => {
+            console.error('Error al copiar:', err);
+        });
+    });
 </script>
 
 </body>
