@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIG Analizador</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+</head>
+<body>
+
+<aside>
+    <h1>Analizador CIG</h1>
+    
+    <div id="loading-indicator" class="loading-container">
+        <div class="spinner"></div>
+        <p>Cargando Python...</p>
+    </div>
+    
+    <div id="app-controls" style="display: none;">
+        <div class="control-group">
+            <button class="primary" id="load-btn">Cargar Gramática</button>
+        </div>
+
+        <div class="control-group">
+            <h3>Análisis</h3>
+            <button class="op-btn" data-op="terminating">Variables Terminables</button>
+            <button class="op-btn" data-op="nullable">Variables Anulables</button>
+            <button class="op-btn" data-op="reachable">Variables Alcanzables</button>
+            <button class="op-btn" data-op="unit">Clausuras Unitarias</button>
+        </div>
+
+        <div class="control-group">
+            <h3>Transformación</h3>
+            <button class="op-btn" data-op="useless">Eliminar variables Inútiles</button>
+        </div>
+    </div>
+</aside>
+
+<main>
+    <section class="panel grammar-panel">
+        <h2 class="grammar-header">
+            Definición de la Gramática
+        </h2>
+
+        <textarea id="grammar-input" placeholder="Ingrese reglas de producción aquí...
+Ejemplo:
+S -> AB | a
+A -> aA | λ
+B -> b"></textarea>
+        
+        <div class="lambda-help">
+            <span>Para copiar el símbolo lambda pulse el botón con el símbolo</span>
+            <button id="copy-lambda-btn" class="lambda-btn">λ</button>
+        </div>
+        
+        <div id="copy-msg" style="position: fixed; bottom: 20px; right: 20px; background:#333; color:#fff; padding:8px 12px; border-radius:5px; display:none;">
+            Lambda copiado al portapapeles
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Resultados del Análisis</h2>
+        <div class="results-container">
+            <div id="output-container">
+                <p style="color: #94a3b8; font-style: italic;">Los resultados aparecerán aquí...</p>
+            </div>
+            
+            <div id="steps-container" class="steps-panel">
+                <h3>Paso a Paso</h3>
+                <div id="steps-content">
+                    <p style="color: #94a3b8; font-style: italic; margin: 0;">
+                        Seleccione un algoritmo para ver los pasos detallados...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div id="toast"></div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
